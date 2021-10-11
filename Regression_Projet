@@ -1,0 +1,289 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[ ]:
+
+
+#For this Project,I choose the dataset of AGRIBALYSE to finish the Regression Analysing
+#Agribalyse is a reference database of environmental impact indicators of agricultural products produced in France 
+#and food products consumed in France.
+
+#What we are gonna do is to predict the DQR - Note de qualité de la donnée by using Regression 
+#with the variables of Appauvrissement de la couche d'ozone ,Rayonnements ionisants and Score unique EF 
+
+
+# In[1]:
+
+
+#First of all ,we need to import the file we downloaded.
+
+#import LIbraries
+import csv
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+
+path = 'D:/Regression Projet/data.csv'
+data = open(path)
+f = open(path)
+x = []
+y = []
+for i, d in enumerate(f):
+#The enumerate () function is used to combine a traversable data object,
+#such as a list, tuple, or string, into an index sequence, listing both the data and the data subscript
+    if i == 0:
+        continue
+    d = d.strip()
+    if not d:
+        continue
+    d = list(map(float, d.split(',')))
+    #We put the value in the list
+    x.append(d[0:-1])
+    y.append(d[1])
+print(x)
+print(y)
+x = np.array(x)
+y = np.array(y)
+
+
+# In[2]:
+
+
+#Complete any missing data,because we can't analyse the data with data missing
+#CLEAN UP DATA
+
+#import Library
+from sklearn.impute import SimpleImputer
+
+df1 = x
+#get the number for calculation
+nan_model=SimpleImputer(missing_values=np.nan,strategy='mean') 
+# establish the substitution rule: replace the missing value of Nan with the mean value
+datax=nan_model.fit_transform(df1)
+
+print(datax)
+
+
+# In[3]:
+
+
+#Réduction de dimension
+#As we can see , the datas have so many dimensions ,so the réduction de dimension helps us do better analysing
+#We use PCA for the reduction
+
+#Principal Component Analysis is a technique for exploring high-dimensional data. 
+#PCA is usually used to explore and visualize high-dimensional data sets
+from sklearn import decomposition
+pca = decomposition.PCA()
+
+data_pca = pca.fit_transform(datax)
+data_pca[:9]
+
+
+# In[4]:
+
+
+#The first variables now concentrate the largest variance at the data level: the base vectors have been changed, orthogonal,
+#so that the data vary the most following the first coordinate, then the most following the second...
+pca.explained_variance_ratio_
+
+pca = decomposition.PCA(n_components=2)
+data_X = pca.fit_transform(datax)
+data_X.shape
+
+pca.explained_variance_ratio_.sum()
+
+
+# In[5]:
+
+
+#we can compare the data before and after the PCA
+get_ipython().run_line_magic('matplotlib', 'inline')
+import matplotlib.pyplot as plt
+
+fig = plt.figure(figsize=(20,7))
+
+ax = fig.add_subplot(121)
+ax.scatter(datax[:,1],datax[:,0],c=y,s=40)
+ax.set_title('Before PCA')
+
+ax2 = fig.add_subplot(122)
+ax2.scatter(data_X[:,1],data_X[:,0],c=y,s=40)
+ax2.set_title('After PCA')
+
+
+# In[6]:
+
+
+#We get analyzable data, and then we visualize that data
+plt.figure(figsize=(9,12))
+plt.subplot(311)
+plt.plot(data_X[:,0], y, 'r.')
+plt.title('Appauvrissement de la couche d‘ozone')
+plt.grid()
+plt.subplot(312)
+plt.plot(data_X[:,1], y, 'g.')
+plt.title('Rayonnements ionisants')
+plt.grid()
+plt.show()
+
+
+# In[ ]:
+
+
+#Then we need to do the svm to classfier the data ,in order to choose a better variable to do the regression
+#We separate our dataset into a learning set (80% of the data) and a test set:
+from sklearn.model_selection import train_test_split
+
+#because we can't do the SVC with float data so we need to force the y-data to 'int'
+
+X_train, X_test, y_train, y_test = train_test_split(data_X, y*100, test_size=0.2, random_state=42)
+
+from sklearn.svm import SVC
+clf = SVC(kernel='linear', random_state=42)
+
+clf.fit(X_train, y_train.astype('int'))
+
+
+# In[66]:
+
+
+#in order to keep the Accuracy of data, we need to Deal with the variable y 
+
+y_pred = clf.predict(X_test)
+print(y_test)
+print(y_pred/100)
+
+
+# In[7]:
+
+
+#variable_choose
+#We want to keep only the features of importance in this regression, which can be done with the feature_selection module of sklearn
+X = data_X
+from sklearn import feature_selection
+f, p = feature_selection.f_regression(X, y)
+
+f[:9]
+
+
+# In[18]:
+
+
+#Above, f is the score obtained during a regression on each variable taken alone, when p is the p-value of the associated test:
+p[:9]
+
+
+# In[17]:
+
+
+import numpy as np
+idx = np.arange(0, X.shape[1])
+variables_a_garder = idx[p < .05]
+len(variables_a_garder)
+
+
+# In[10]:
+
+
+#Once the data is processed, we can do a regression analysis
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+#import Libraries we need
+from sklearn import datasets
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier,DecisionTreeRegressor
+
+#DecisionTreeRegressor model
+def test_DecisionTreeRegressor(*data):
+    X_train,X_test,y_train,y_test=data
+    regr = DecisionTreeRegressor()
+    regr.fit(X_train, y_train)
+    print("Training score:%f"%(regr.score(X_train,y_train)))
+    print("Testing score:%f"%(regr.score(X_test,y_test)))
+    
+    #Draw
+    fig=plt.figure()
+    ax=fig.add_subplot(1,1,1)
+    X = np.arange(0.0, 5.0, 0.01)[:, np.newaxis]
+    Y = regr.predict(X)
+    ax.scatter(X_train, y_train, label="train sample",c='g')
+    ax.scatter(X_test, y_test, label="test sample",c='r')
+    ax.plot(X, Y, label="predict_value", linewidth=2,alpha=0.5)
+    ax.set_xlabel("data")
+    ax.set_ylabel("target")
+    ax.set_title("Decision Tree Regression")
+    ax.legend(framealpha=0.5)
+    plt.show()
+    
+# Generate data sets for regression problems
+#X_train,X_test,y_train,y_test=creat_data
+for i in range(2):
+    X_train, X_test, y_train, y_test = train_test_split(data_X[:,i:i+1],y, random_state=1)
+    test_DecisionTreeRegressor(X_train,X_test,y_train,y_test)
+
+
+# In[11]:
+
+
+def test_DecisionTreeRegressor_splitter(*data):
+
+    #Test Decision Tree ressor to predict the effect of partition type on performance
+    X_train,X_test,y_train,y_test=data
+    splitters=['best','random']
+    for splitter in splitters:
+        regr = DecisionTreeRegressor(splitter=splitter)
+        regr.fit(X_train, y_train)
+        print("Splitter %s"%splitter)
+        print("Training score:%f"%(regr.score(X_train,y_train)))
+        print("Testing score:%f"%(regr.score(X_test,y_test)))
+        
+# call for test_DecisionTreeRegressor_splitter    
+for i in range(2):
+    X_train, X_test, y_train, y_test = train_test_split(data_X[:,i:i+1],y, random_state=1)
+    test_DecisionTreeRegressor_splitter(X_train,X_test,y_train,y_test)
+
+
+# In[12]:
+
+
+#Use other supervised learning techniques to reduce the root mean square error of prediction
+def test_DecisionTreeRegressor_depth(*data,maxdepth):
+    
+    #Test Decision Tree ressor to predict performance with Max effect
+    
+    X_train,X_test,y_train,y_test=data
+    depths=np.arange(1,maxdepth)
+    training_scores=[]
+    testing_scores=[]
+    for depth in depths:
+        regr = DecisionTreeRegressor(max_depth=depth)
+        regr.fit(X_train, y_train)
+        training_scores.append(regr.score(X_train,y_train))
+        testing_scores.append(regr.score(X_test,y_test))
+    # Draw
+    fig=plt.figure()
+    ax=fig.add_subplot(1,1,1)
+    ax.plot(depths,training_scores,label="traing score")
+    ax.plot(depths,testing_scores,label="testing score")
+    ax.set_xlabel("maxdepth")
+    ax.set_ylabel("score")
+    ax.set_title("Decision Tree Regression")
+    ax.legend(framealpha=0.5)
+    plt.show()
+    
+# call for test_DecisionTreeRegressor_depth    
+for i in range(2):
+    X_train, X_test, y_train, y_test = train_test_split(data_X[:,i:i+1],y, random_state=1)
+    test_DecisionTreeRegressor_depth(X_train,X_test,y_train,y_test,maxdepth=20)   
+
+
+# In[ ]:
+
+
+
+
